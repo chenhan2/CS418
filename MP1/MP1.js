@@ -32,6 +32,51 @@ var modelViewMatrix = glMatrix.mat4.create();
 /** @global Records time last frame was rendered */
 var previousTime = 0;
 
+/** @global The original shape of I logo */
+var verticesAbs = [
+  -0.6,  0.6,  0.0,
+  -0.6,  1.0,  0.0,
+  -0.2,  0.6,  0.0,
+  
+  -0.6,  1.0,  0.0,
+  -0.2,  0.6,  0.0,
+   0.6,  1.0,  0.0,
+
+  -0.2,  0.6,  0.0,
+   0.2,  0.6,  0.0,
+   0.6,  1.0,  0.0,
+
+   0.2,  0.6,  0.0,
+   0.6,  1.0,  0.0,
+   0.6,  0.6,  0.0,
+
+  -0.2,  0.6,  0.0,
+   0.2,  0.6,  0.0,
+   0.2, -0.6,  0.0,
+   
+  -0.2,  0.6,  0.0,
+  -0.2, -0.6,  0.0,
+   0.2, -0.6,  0.0,
+   
+  -0.6, -0.6,  0.0,
+  -0.2, -0.6,  0.0,
+  -0.6, -1.0,  0.0,
+  
+   0.6, -1.0,  0.0,
+  -0.2, -0.6,  0.0,
+  -0.6, -1.0,  0.0,
+  
+   0.2, -0.6,  0.0,
+  -0.2, -0.6,  0.0,
+   0.6, -1.0,  0.0,
+   
+   0.2, -0.6,  0.0,
+   0.6, -0.6,  0.0,
+   0.6, -1.0,  0.0
+];
+
+/** @global The time step to control the transformation of logo */
+var step = 0.0;
 
 /**
  * Translates degrees to radians
@@ -146,102 +191,136 @@ function setupBuffers() {
   vertexPositionBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, vertexPositionBuffer);
 
-  // Define a triangle in clip coordinates.
-  var vertices = [
-        -0.6,  0.6,  0.0,
-        -0.6,  1.0,  0.0,
-        -0.2,  0.6,  0.0,
+  // Decide which image to draw
+  if (document.getElementById("I").checked == true) {
+    // Define the I in clip coordinates with directly changing the positions.
+    var vertices = [];
+    x = 0.5 * Math.cos(degToRad(5 * step));
+    y = 0.5 * Math.sin(degToRad(4 * step));
+    for (var i = 0; i < 30; i++){
+      //add the vertex coordinates to the array
+      vertices.push(verticesAbs[3 * i] + x);
+      vertices.push(verticesAbs[3 * i + 1] + y);
+      vertices.push(0.0);
+    }
+
+    // Update the time step variable.
+    step = step + 1;
+    if (step >= 360.0)
+      step = 0.0;
+
+    // Populate the buffer with the position data.
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.DYNAMIC_DRAW);
+    vertexPositionBuffer.itemSize = 3;
+    vertexPositionBuffer.numberOfItems = 30;
+  }
+  else {
+    // Define the original image in clip coordinates.
+    var vertices = [
+       0.0,  0.0,  0.0,
+
+       0.6,  0.0,  0.0,
+       0.6,  0.6,  0.0,
         
-        -0.6,  1.0,  0.0,
-        -0.2,  0.6,  0.0,
-         0.6,  1.0,  0.0,
+       0.2,  0.2,  0.0,
+       0.0,  0.6,  0.0,
 
-        -0.2,  0.6,  0.0,
-         0.2,  0.6,  0.0,
-         0.6,  1.0,  0.0,
+       0.0,  0.6,  0.0,
+      -0.6,  0.6,  0.0,
+      
+      -0.2,  0.2,  0.0,
+      -0.6,  0.0,  0.0,
 
-         0.2,  0.6,  0.0,
-         0.6,  1.0,  0.0,
-         0.6,  0.6,  0.0,
+      -0.6,  0.0,  0.0,
+      -0.6, -0.6,  0.0,
 
-        -0.2,  0.6,  0.0,
-         0.2,  0.6,  0.0,
-         0.2, -0.6,  0.0,
-         
-        -0.2,  0.6,  0.0,
-        -0.2, -0.6,  0.0,
-         0.2, -0.6,  0.0,
-         
-        -0.6, -0.6,  0.0,
-        -0.2, -0.6,  0.0,
-        -0.6, -1.0,  0.0,
-
-        -0.6, -0.6,  0.0,
-        -0.2, -0.6,  0.0,
-        -0.6, -1.0,  0.0,
+      -0.2, -0.2,  0.0,
+       0.0, -0.6,  0.0,
         
-         0.6, -1.0,  0.0,
-        -0.2, -0.6,  0.0,
-        -0.6, -1.0,  0.0,
-        
-         0.2, -0.6,  0.0,
-        -0.2, -0.6,  0.0,
-         0.6, -1.0,  0.0,
-         
-         0.2, -0.6,  0.0,
-         0.6, -0.6,  0.0,
-         0.6, -1.0,  0.0
-  ];
-  // Populate the buffer with the position data.
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-  vertexPositionBuffer.itemSize = 3;
-  vertexPositionBuffer.numberOfItems = 30;
+       0.0, -0.6,  0.0,
+       0.6, -0.6,  0.0,
 
+       0.2, -0.2,  0.0,
+       0.6,  0.0,  0.0,
+    ];
+
+    // Populate the buffer with the position data.
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.DYNAMIC_DRAW);
+    vertexPositionBuffer.itemSize = 3;
+    vertexPositionBuffer.numberOfItems = 17;
+  }
+  
   // Binds the buffer that we just made to the vertex position attribute.
   gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, 
                          vertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
   
-  // Do the same steps for the color buffer.
+                         
   vertexColorBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, vertexColorBuffer);
-  var colors = [
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        1.0, 0.0, 1.0, 1.0,
-        1.0, 0.0, 1.0, 1.0,
-        1.0, 0.0, 1.0, 1.0,
-        1.0, 1.0, 0.0, 1.0,
-        1.0, 1.0, 0.0, 1.0,
-        1.0, 1.0, 0.0, 1.0,
-        1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0
-    ];
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
-  vertexColorBuffer.itemSize = 4;
-  vertexColorBuffer.numberOfItems = 30;  
+
+  // Do the same steps for the color buffer.
+  if (document.getElementById("I").checked == true) {
+    var colors = [
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0,
+        0.9098, 0.2902, 0.1529, 1.0
+      ];
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.DYNAMIC_DRAW);
+    vertexColorBuffer.itemSize = 4;
+    vertexColorBuffer.numberOfItems = 30;  
+  }
+  else {
+    // Define colors that gradually change
+    var colors = [1.0, 1.0, 1.0, 1.0];
+    for (var i = 0; i < 8; i++){
+      //add the vertex colors to the array
+      colors.push(0.5 + 0.5 * Math.sin(degToRad(step + i * 45)));
+      colors.push(0.5 + 0.5 * Math.sin(degToRad(step + i * 45 + 120)));
+      colors.push(0.5 + 0.5 * Math.sin(degToRad(step + i * 45 + 240)));
+      colors.push(1);
+      colors.push(0.5 + 0.5 * Math.sin(degToRad(step + i * 45)));
+      colors.push(0.5 + 0.5 * Math.sin(degToRad(step + i * 45 + 120)));
+      colors.push(0.5 + 0.5 * Math.sin(degToRad(step + i * 45 + 240)));
+      colors.push(1);
+    }
+    // Update step variable
+    var speed = document.getElementById("speed").value;
+    step = step + speed / 30;
+    if (step >= 360.0)
+      step = 0.0;
+
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.DYNAMIC_DRAW);
+    vertexColorBuffer.itemSize = 4;
+    vertexColorBuffer.numberOfItems = 17;  
+  }
+  
   gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, 
                          vertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
@@ -252,7 +331,6 @@ function setupBuffers() {
   // Unbind the vertex array object to be safe.
   gl.bindVertexArray(null);
 }
-
 
 /**
  * Draws a frame to the screen.
@@ -271,16 +349,20 @@ function draw() {
   gl.uniformMatrix4fv(shaderProgram.modelViewMatrixUniform,
                       false, modelViewMatrix);
     
-  // Render the triangle. 
-  gl.drawArrays(gl.TRIANGLES, 0, vertexPositionBuffer.numberOfItems);
+  // Render the image. 
+  if (document.getElementById("I").checked == true) {
+    gl.drawArrays(gl.TRIANGLES, 0, vertexPositionBuffer.numberOfItems);
+  }
+  else {
+    gl.drawArrays(gl.TRIANGLE_FAN, 0, vertexPositionBuffer.numberOfItems);
+  }
 
   // Unbind the vertex array object to be safe.
   gl.bindVertexArray(null);
 }
 
-
 /**
- * Animates the triangle by updating the ModelView matrix with a rotation
+ * Animates the Illinois logo by updating the ModelView matrix with a rotation
  * each frame.
  */
  function animate(currentTime) {
@@ -293,12 +375,23 @@ function draw() {
   var deltaTime = currentTime - previousTime;
   // Remember the current time for the next frame.
   previousTime = currentTime;
-     
+  
+  
   // Update geometry to rotate 'speed' degrees per second.
   rotAngle += speed * deltaTime;
   if (rotAngle > 360.0)
-      rotAngle = 0.0;
+    rotAngle = 0.0;
   glMatrix.mat4.fromZRotation(modelViewMatrix, degToRad(rotAngle));
+
+  // Decide which image to draw
+  if (document.getElementById("I").checked == true) {
+    // If drawing the I logo, update geometry to scale the logo based on the rotation speed.
+    var scaleVector = glMatrix.vec3.create();
+    var scaler = 0.2 * Math.cos(degToRad(rotAngle)) + 0.4;
+    glMatrix.vec3.set(scaleVector, scaler, scaler, scaler)
+    glMatrix.mat4.scale(modelViewMatrix, modelViewMatrix, scaleVector);
+  }
+
   setupBuffers();     
 
   // Draw the frame.
@@ -308,7 +401,6 @@ function draw() {
   // milliseconds.
   requestAnimationFrame(animate);
 }
-
 
 /**
  * Startup function called from html code to start the program.
