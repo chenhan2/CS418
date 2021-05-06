@@ -87,7 +87,7 @@ class Terrain {
 
 
     /**
-     * This function does nothing.
+     * Set the vertex position of triangles.
      */    
     generateTriangles() {
         // MP2: Implement the rest of this function!
@@ -122,7 +122,7 @@ class Terrain {
 
 
     /**
-     * This function does nothing.
+     * Lift or lower the terrain by a random value.
      */
     shapeTerrain() {
         // MP2: Implement this function!
@@ -158,7 +158,7 @@ class Terrain {
 
 
     /**
-     * This function does nothing.
+     * Calculate average vertex normals for the shading purpose.
      */
     calculateNormals() {
         // MP2: Implement this function!

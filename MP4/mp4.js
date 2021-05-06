@@ -1,7 +1,7 @@
 /**
- * @file MP2.js - A simple WebGL rendering engine
+ * @file MP4.js - A simple WebGL rendering engine
  * @author Chenhan Xu <chenhan2@illinois.edu>
- * @brief Starter code for CS 418 MP2 at the University of Illinois at
+ * @brief Code for CS 418 MP4 at the University of Illinois at
  * Urbana-Champaign.
  * 
  * Updated Spring 2021 for WebGL 2.0/GLSL 3.00 ES.
@@ -16,11 +16,13 @@ var canvas;
 /** @global The GLSL shader program */
 var shaderProgram;
 
-/** @global An object holding the geometry for your 3D terrain */
-var myTerrain;
+/** @global An object holding the geometry for your 3D model */
+var myMesh;
 
 /** @global The Model matrix */
 var modelViewMatrix = glMatrix.mat4.create();
+/** @global The Model matrix */
+var viewMatrix = glMatrix.mat4.create();
 /** @global The Projection matrix */
 var projectionMatrix = glMatrix.mat4.create();
 /** @global The Normal matrix */
@@ -46,10 +48,29 @@ var diffuseLightColor = [1, 1, 1];
 /** @global Specular light color/intensity for Phong reflection */
 var specularLightColor = [1, 1, 1];
 
+//Camera parameters
+/** @global point being lookat at in World coordinates */
+const lookAtPt = glMatrix.vec3.fromValues(0.0, 0.0, -1.0);
+/** @global camera location in World coordinates */
+const eyePt = glMatrix.vec3.fromValues(0.0, 0.0, 1.5);
+/** @global vertical direction of camera in World coordinates */
+const up = glMatrix.vec3.fromValues(0.0, 1.0, 0.0);
+
 /** @global Edge color for black wireframe */
 var kEdgeBlack = [0.0, 0.0, 0.0];
 /** @global Edge color for white wireframe */
 var kEdgeWhite = [0.7, 0.7, 0.7];
+
+/** @global Image texture to mapped onto mesh */
+var texture;
+
+/** @global Is a mouse button pressed? */
+var isDown = false;
+/** @global Mouse coordinates */
+var x = -1;
+var y = -1;
+/** @global Accumulated rotation around Y in degrees */
+var rotY = 0;
 
 /**
  * Translates degrees to radians
@@ -59,7 +80,6 @@ var kEdgeWhite = [0.7, 0.7, 0.7];
 function degToRad(degrees) {
   return degrees * Math.PI / 180;
 }
-
 
 //-----------------------------------------------------------------------------
 // Setup functions (run once)
@@ -71,15 +91,50 @@ function startup() {
   canvas = document.getElementById("glCanvas");
   gl = createGLContext(canvas);
 
+  // Add eventListener to canvas
+  canvas.addEventListener('mousedown', e => {
+    x = e.offsetX;
+    y = e.offsetY;
+    isDown = true;
+  });
+
+  canvas.addEventListener('mouseup', e => {
+    x = -1;
+    y = -1;
+    isDown = false;
+  });
+
+  canvas.addEventListener('mousemove', e => {
+    rotY += e.offsetX - x;
+    x = e.offsetX;
+    y = e.offsetY;
+  });
+
   // Compile and link the shader program.
   setupShaders();
 
-  // Let the Terrain object set up its own buffers.
-  myTerrain = new Terrain(64, -1, 1, -1, 1);
-  myTerrain.setupBuffers(shaderProgram);
+  // Let the mesh object set up its own buffers.
+  myMesh = new TriMesh();
+  myMesh.readFile("teapot.obj");
+  
+  // Generate the projection matrix using perspective projection.
+  const near = 0.1;
+  const far = 200.0;
+  glMatrix.mat4.perspective(projectionMatrix, degToRad(45), 
+                            gl.viewportWidth / gl.viewportHeight,
+                            near, far);
 
   // Set the background color to sky blue (you can change this if you like).
   gl.clearColor(0.82, 0.93, 0.99, 1.0);
+
+  // Load a texture
+  loadTexture("brick.jpg");
+  // Tell WebGL we want to affect texture unit 0
+  gl.activeTexture(gl.TEXTURE0);
+  // Bind the texture to texture unit 0
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  // Tell the shader we bound the texture to texture unit 0
+  gl.uniform1i(shaderProgram.locations.uSampler, 0);    
 
   gl.enable(gl.DEPTH_TEST);
   requestAnimationFrame(animate);
@@ -192,12 +247,12 @@ function setupShaders() {
   shaderProgram.locations.specularLightColor =
   gl.getUniformLocation(shaderProgram, "specularLightColor");
 
-  shaderProgram.uniformMinHeight = gl.getUniformLocation(shaderProgram, "MinHeight");
-  shaderProgram.uniformMaxHeight = gl.getUniformLocation(shaderProgram, "MaxHeight");
+  shaderProgram.locations.uSampler =
+    gl.getUniformLocation(shaderProgram, "u_texture");
 }
 
 /**
- * Draws the terrain to the screen.
+ * Draws the mesh to the screen.
  */
 function draw() {
   // Transform the clip coordinates so the render fills the canvas dimensions.
@@ -205,19 +260,13 @@ function draw() {
   // Clear the color buffer and the depth buffer.
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-  // Generate the projection matrix using perspective projection.
-  const near = 0.1;
-  const far = 200.0;
-  glMatrix.mat4.perspective(projectionMatrix, degToRad(45), 
-                            gl.viewportWidth / gl.viewportHeight,
-                            near, far);
-  
   // Generate the view matrix using lookat.
-  const lookAtPt = glMatrix.vec3.fromValues(0.0, 0.0, -1.0);
-  const eyePt = glMatrix.vec3.fromValues(0.0, -1.5, 3.0);
-  const up = glMatrix.vec3.fromValues(0.0, 1.0, 0.0);
-  glMatrix.mat4.lookAt(modelViewMatrix, eyePt, lookAtPt, up);
+  glMatrix.mat4.identity(modelViewMatrix);
+  glMatrix.mat4.rotateY(modelViewMatrix,myMesh.getModelTransform(),degToRad(rotY));
+  glMatrix.mat4.lookAt(viewMatrix, eyePt, lookAtPt, up);
+  glMatrix.mat4.multiply(modelViewMatrix, viewMatrix, modelViewMatrix);
 
+      
   setMatrixUniforms();
   setLightUniforms(ambientLightColor, diffuseLightColor, specularLightColor,
                    lightPosition);
@@ -225,20 +274,20 @@ function draw() {
   // Draw the triangles, the wireframe, or both, based on the render selection.
   if (document.getElementById("polygon").checked) { 
     setMaterialUniforms(kAmbient, kDiffuse, kSpecular, shininess);
-    myTerrain.drawTriangles();
+    myMesh.drawTriangles(shaderProgram);
   }
   else if (document.getElementById("wirepoly").checked) {
     setMaterialUniforms(kAmbient, kDiffuse, kSpecular, shininess); 
     gl.enable(gl.POLYGON_OFFSET_FILL);
     gl.polygonOffset(1, 1);
-    myTerrain.drawTriangles();
+    myMesh.drawTriangles(shaderProgram);
     gl.disable(gl.POLYGON_OFFSET_FILL);
     setMaterialUniforms(kEdgeBlack, kEdgeBlack, kEdgeBlack, shininess);
-    myTerrain.drawEdges();
+    myMesh.drawEdges(shaderProgram);
   }
   else if (document.getElementById("wireframe").checked) {
     setMaterialUniforms(kEdgeBlack, kEdgeBlack, kEdgeBlack, shininess);
-    myTerrain.drawEdges();
+    myMesh.drawEdges(shaderProgram);
   }
 }
 
@@ -260,12 +309,6 @@ function setMatrixUniforms() {
 
   gl.uniformMatrix3fv(shaderProgram.locations.normalMatrix, false,
                       normalMatrix);
-
-  var min, max;
-  min = myTerrain.getMinElevation();
-  max = myTerrain.getMaxElevation();
-  gl.uniform1f(shaderProgram.uniformMinHeight, min);
-  gl.uniform1f(shaderProgram.uniformMaxHeight, max);
 }
 
 
@@ -303,8 +346,36 @@ function setLightUniforms(a, d, s, loc) {
  * wireframe, polgon, or both.
  */
  function animate(currentTime) {
-  // Draw the frame.
-  draw();
+  
+  if (myMesh.loaded()){
+        draw();
+  }
   // Animate the next frame. 
   requestAnimationFrame(animate);
+}
+
+/**
+ * Load a texture from an image.
+ */
+
+ function loadTexture(filename){
+	// Create a texture.
+	texture = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D, texture);
+ 
+	// Fill the texture with a 1x1 blue pixel.
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+              new Uint8Array([0, 0, 255, 255]));
+ 
+	// Asynchronously load an image
+	// If image load unsuccessful, it will be a blue surface
+	var image = new Image();
+	image.src = filename;
+	image.addEventListener('load', function() {
+  		// Now that the image has loaded make copy it to the texture.
+  		gl.bindTexture(gl.TEXTURE_2D, texture);
+  		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,gl.UNSIGNED_BYTE, image);
+  		gl.generateMipmap(gl.TEXTURE_2D);
+  		console.log("loaded ", filename);
+		});
 }

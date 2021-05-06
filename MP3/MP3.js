@@ -1,5 +1,5 @@
 /**
- * @file MP2.js - A simple WebGL rendering engine
+ * @file MP3.js - A simple WebGL rendering engine
  * @author Chenhan Xu <chenhan2@illinois.edu>
  * @brief Starter code for CS 418 MP2 at the University of Illinois at
  * Urbana-Champaign.
@@ -51,6 +51,25 @@ var kEdgeBlack = [0.0, 0.0, 0.0];
 /** @global Edge color for white wireframe */
 var kEdgeWhite = [0.7, 0.7, 0.7];
 
+/** @global The camera's current position */
+var camPosition = glMatrix.vec3.fromValues(0.0, -1.0, 1.0);
+/** @global The camera's current orientation */
+var camOrientation = glMatrix.quat.create(); 
+/** @global The camera's current speed in the forward direction */
+var camSpeed = 0.001;
+/** @global The camera's initial view direction  */
+var camInitialDir = glMatrix.vec3.fromValues(0.0, 0.0, -1.0);
+
+/** @global The camera's up direction  */
+var up = glMatrix.vec3.fromValues(0,1,0);
+/** @global The camera's current view direction  */
+var forwardDirection = glMatrix.vec3.fromValues(0.0, 0.0, -1.0);
+/** @global The viewpoint that the camera is looking at  */
+var center = glMatrix.vec3.create();
+
+/** @global The currently pressed keys */
+var currentPressedKeys = {};
+
 /**
  * Translates degrees to radians
  * @param {Number} degrees Degree input to function
@@ -81,10 +100,37 @@ function startup() {
   // Set the background color to sky blue (you can change this if you like).
   gl.clearColor(0.82, 0.93, 0.99, 1.0);
 
+  // Register event handlers
+  document.onkeydown = keyDown;
+  document.onkeyup = keyUp;
+
+  // Initialize camOrientation
+  glMatrix.quat.fromEuler(camOrientation, 0, 0, 0);
+
   gl.enable(gl.DEPTH_TEST);
   requestAnimationFrame(animate);
 }
 
+/** 
+ * Logs keys as "down" when pressed 
+ */
+function keyDown(event) {
+  console.log("Key down", event.key, " code ", event.code);
+  if (event.key == "ArrowLeft" || event.key == "ArrowRight" || event.key == "ArrowUp" || event.key == "ArrowDown") {
+    event.preventDefault();
+  }
+  currentPressedKeys[event.key] = true;
+  // console.log(currentPressedKeys);
+}
+
+/** 
+ * Logs keys as "up" when pressed 
+ */
+function keyUp(event) {
+  console.log("Key up ", event.key, " code ", event.code);
+  currentPressedKeys[event.key] = false;
+  console.log(currentPressedKeys);
+}
 
 /**
  * Creates a WebGL 2.0 context.
@@ -194,6 +240,8 @@ function setupShaders() {
 
   shaderProgram.uniformMinHeight = gl.getUniformLocation(shaderProgram, "MinHeight");
   shaderProgram.uniformMaxHeight = gl.getUniformLocation(shaderProgram, "MaxHeight");
+
+  shaderProgram.uniformFogLoc = gl.getUniformLocation(shaderProgram, "fog");
 }
 
 /**
@@ -213,10 +261,7 @@ function draw() {
                             near, far);
   
   // Generate the view matrix using lookat.
-  const lookAtPt = glMatrix.vec3.fromValues(0.0, 0.0, -1.0);
-  const eyePt = glMatrix.vec3.fromValues(0.0, -1.5, 3.0);
-  const up = glMatrix.vec3.fromValues(0.0, 1.0, 0.0);
-  glMatrix.mat4.lookAt(modelViewMatrix, eyePt, lookAtPt, up);
+  glMatrix.mat4.lookAt(modelViewMatrix, camPosition, center, up);
 
   setMatrixUniforms();
   setLightUniforms(ambientLightColor, diffuseLightColor, specularLightColor,
@@ -266,6 +311,12 @@ function setMatrixUniforms() {
   max = myTerrain.getMaxElevation();
   gl.uniform1f(shaderProgram.uniformMinHeight, min);
   gl.uniform1f(shaderProgram.uniformMaxHeight, max);
+
+  if (document.getElementById("fog").checked) {
+    gl.uniform1i(shaderProgram.uniformFogLoc, true);
+  } else {
+    gl.uniform1i(shaderProgram.uniformFogLoc, false);
+  }
 }
 
 
@@ -303,6 +354,59 @@ function setLightUniforms(a, d, s, loc) {
  * wireframe, polgon, or both.
  */
  function animate(currentTime) {
+  var eulerX = 0;
+  var eulerY = 0;
+  var eulerZ = 0;
+
+  // update the speed based on the key input
+  if (currentPressedKeys["="]) { 
+    camSpeed += 0.001;
+  }
+  if (currentPressedKeys["-"]) {
+    camSpeed -= 0.001;
+  }
+  // Rest camOrientation and camPosition if ESC is pressed
+  if (currentPressedKeys["Escape"]) {
+    camSpeed = 0.001;
+    camOrientation = glMatrix.quat.create();
+    camPosition = glMatrix.vec3.fromValues(0.0, -1.0, 1.0);
+  }
+
+  // Pitch orientation
+  if (currentPressedKeys["ArrowLeft"]) {
+    eulerZ += 1;
+  } else if (currentPressedKeys["ArrowRight"]) {
+    eulerZ -= 1;
+  }  
+  // Roll orientation
+  if (currentPressedKeys["ArrowUp"]) {
+    eulerX += 1;
+  } else if (currentPressedKeys["ArrowDown"]) {
+    eulerX -= 1;
+  } 
+
+  // Handling camOrientation change.
+  var orientationDelta = glMatrix.quat.create();
+  glMatrix.quat.fromEuler(orientationDelta, eulerX, eulerY, eulerZ);
+  glMatrix.quat.multiply(camOrientation, camOrientation, orientationDelta);
+
+  // Handling forwardDirection change.
+  glMatrix.vec3.transformQuat(forwardDirection, camInitialDir, camOrientation);
+  glMatrix.vec3.normalize(forwardDirection, forwardDirection);
+
+  // Handling camPosition change.
+  var deltaPosition = glMatrix.vec3.create();
+  glMatrix.vec3.scale(deltaPosition, forwardDirection, camSpeed);
+  glMatrix.vec3.add(camPosition, camPosition, deltaPosition);
+
+  // Calculate up vector
+  up = glMatrix.vec3.fromValues(0, 1, 0);
+  glMatrix.vec3.transformQuat(up, up, camOrientation);
+
+  // Calculate center vector
+  glMatrix.vec3.add(center, camPosition, forwardDirection);
+  
+
   // Draw the frame.
   draw();
   // Animate the next frame. 

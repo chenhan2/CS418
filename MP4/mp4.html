@@ -1,19 +1,19 @@
 <!DOCTYPE HTML> 
 <html lang="en"> 
 <head>
-<title>MP2: Terrain</title>
+<title>MP4: Texture Mapping</title>
 <meta charset="utf-8"> 
 </head>
 
 <!-- If you add additional .js files, be sure to add them here. -->
 <script src="gl-matrix-min.js"></script>
-<script src="Terrain.js"></script>
-<script src="MP2.js"></script>
+<script src="TriMesh.js"></script>
+<script src="mp4.js"></script>
 
 <!-- MP2: Modify the shaders to implement Phong shading instead of Gourand! -->
 <script id="shader-vs" type="x-shader/x-vertex">#version 300 es
 // Vertex Shader
-// Implements Gourand shading. See the lecture on "Basic Shading" for details.
+// Implements Phong shading. See the lecture on "Basic Shading" for details.
 
 // Use high-precision floats if available on this device.
 #ifdef GL_FRAGMENT_PRECISION_HIGH
@@ -25,51 +25,30 @@ precision mediump float;
 in vec3 vertexPosition;
 in vec3 vertexNormal;
 
-uniform float MinHeight;
-uniform float MaxHeight;
-
 uniform mat4 modelViewMatrix;
 uniform mat4 projectionMatrix;
 uniform mat3 normalMatrix;
 
-out vec3 viewVertexPosition;
-out vec3 viewVertexNormal;
-out vec3 cusKDiffuse;
-out vec3 cusKAmbient;
+out vec3 fragPosition;
+out vec3 fragNormal;
+out vec2 v_texcoord;
 
 
 void main(void) {
     // Transform the vertex position and normal to view coordinates
-    viewVertexPosition = (modelViewMatrix * vec4(vertexPosition, 1.0)).xyz;
-    viewVertexNormal = normalize(normalMatrix * vertexNormal);
+    fragPosition =(modelViewMatrix * vec4(vertexPosition, 1.0)).xyz;
+    fragNormal = normalize(normalMatrix * vertexNormal);
+
+    v_texcoord = vertexPosition.xy;
     
     gl_Position = projectionMatrix * modelViewMatrix * vec4(vertexPosition, 1.0);
-
-    // Normalize height to value between 0 to 1
-    float height = (vertexPosition.z - MinHeight) / (MaxHeight - MinHeight);
-    if (height < 0.20) {
-        cusKDiffuse = vec3(0.0/255.0, 0.0/255.0, 255.0/255.0); // blue
-        cusKAmbient = vec3(0.0/255.0, 0.0/255.0, 177.0/255.0); // blue
-    } else if (height < 0.40) {
-        cusKDiffuse = vec3(0.0/255.0, 128.0/255.0, 0.0/255.0); // green
-        cusKAmbient = vec3(0.0/255.0, 64.0/255.0, 0.0/255.0); // green
-    } else if (height < 0.60) {
-        cusKDiffuse = vec3(255.0/255.0, 255.0/255.0, 0.0/255.0); // yellow
-        cusKAmbient = vec3(177.0/255.0, 177.0/255.0, 0.0/255.0); // yellow
-    } else if (height < 0.80) {
-        cusKDiffuse = vec3(255.0/255.0, 0.0/255.0, 42.0/255.0); // red
-        cusKAmbient = vec3(177.0/255.0, 0.0/255.0, 21.0/255.0); // red
-    } else {
-        cusKDiffuse = vec3(255.0/255.0, 255.0/255.0, 255.0/255.0); // white
-        cusKAmbient = vec3(255.0/255.0, 255.0/255.0, 255.0/255.0); // white
-    }
 }
 </script>
 
 <!-- MP2: Modify the shaders to implement Phong shading instead of Gourand! -->
 <script id="shader-fs" type="x-shader/x-fragment">#version 300 es
 // Fragment Shader
-// Implements Gourand shading. See the lecture on "Basic Shading" for details.
+// Implements Phong shading. See the lecture on "Basic Shading" for details.
 
 // Use high-precision floats if available on this device.
 #ifdef GL_FRAGMENT_PRECISION_HIGH
@@ -77,11 +56,6 @@ precision highp float;
 #else
 precision mediump float;
 #endif
-
-in vec3 viewVertexPosition;
-in vec3 viewVertexNormal;
-in vec3 cusKDiffuse;
-in vec3 cusKAmbient;
 
 uniform vec3 kAmbient;
 uniform vec3 kDiffuse;
@@ -93,22 +67,32 @@ uniform vec3 ambientLightColor;
 uniform vec3 diffuseLightColor;
 uniform vec3 specularLightColor;
 
+uniform sampler2D u_texture;
+
+in vec3 fragPosition;
+in vec3 fragNormal;
+
+in vec2 v_texcoord;
 
 out vec4 fragmentColor;
 
 
 void main(void) {
-
     // The camera is at the origin in view coordinates
-    vec3 viewCameraPosition = vec3(0.0, 0.0, 0.0);
+    vec3 cameraPositionView = vec3(0.0, 0.0, 0.0);
     
+    vec3 nFragNormal = normalize(fragNormal);
+
     // Calculate the three other vectors we need: l, r, and v
-    vec3 lightVector = normalize(lightPosition - viewVertexPosition);
-    vec3 reflectionVector = normalize(reflect(-lightVector, viewVertexNormal));
-    vec3 viewVector = normalize(viewCameraPosition - viewVertexPosition);
+    vec3 lightVector = normalize(lightPosition - fragPosition);
+    vec3 reflectionVector = normalize(reflect(-lightVector, nFragNormal));
+    vec3 viewVector = normalize(cameraPositionView - fragPosition);
+
+    // Sample the texture
+    vec4 texColor = texture(u_texture, v_texcoord); 
 
     // Calculate diffuse light weighting: (n dot l)
-    float diffuseWeight = max(dot(viewVertexNormal, lightVector), 0.0);
+    float diffuseWeight = max(dot(nFragNormal, lightVector), 0.0);
     
     // Calculate the specular light weighting: (r dot v)^(shininess)
     float rDotV = max(dot(reflectionVector, viewVector), 0.0);
@@ -116,8 +100,8 @@ void main(void) {
 
     // Sum up all three lighting components into the color for the vertex,
     // and send it to the fragment shader.
-    fragmentColor = vec4(( cusKAmbient * ambientLightColor
-                        + cusKDiffuse * diffuseLightColor * diffuseWeight
+    fragmentColor = vec4((  texColor.rgb * ambientLightColor
+                        + texColor.rgb * diffuseLightColor * diffuseWeight
                         + kSpecular * specularLightColor * specularWeight), 1.0);
 
 }

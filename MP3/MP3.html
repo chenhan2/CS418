@@ -8,7 +8,7 @@
 <!-- If you add additional .js files, be sure to add them here. -->
 <script src="gl-matrix-min.js"></script>
 <script src="Terrain.js"></script>
-<script src="MP2.js"></script>
+<script src="MP3.js"></script>
 
 <!-- MP2: Modify the shaders to implement Phong shading instead of Gourand! -->
 <script id="shader-vs" type="x-shader/x-vertex">#version 300 es
@@ -93,6 +93,8 @@ uniform vec3 ambientLightColor;
 uniform vec3 diffuseLightColor;
 uniform vec3 specularLightColor;
 
+uniform bool fog;
+
 
 out vec4 fragmentColor;
 
@@ -120,6 +122,22 @@ void main(void) {
                         + cusKDiffuse * diffuseLightColor * diffuseWeight
                         + kSpecular * specularLightColor * specularWeight), 1.0);
 
+    
+    // Set up fog
+    float fogDistance = gl_FragCoord.z / gl_FragCoord.w;
+    vec4 fogColor = vec4(1.0, 1.0, 1.0, 1.0);
+    float fogDensity = 0.6;
+                    
+    #define LOG2 1.442695
+    float fogAmount = 1.0 - exp2(-fogDensity * fogDensity * fogDistance * fogDistance * LOG2);
+    if (fog) {
+        fogAmount = clamp(fogAmount, 0.0, 1.0);
+    } else {
+        fogAmount = 0.0;
+    }
+
+    fragmentColor = mix(fragmentColor, fogColor, fogAmount);
+
 }
 </script>
 
@@ -134,6 +152,20 @@ void main(void) {
                 <input type="radio" name="primitive" id="wireframe" value="wireframe"> Wireframe
                 <input type="radio" name="primitive" id="polygon" value="polygon" checked> Polygon
                 <input type="radio" name="primitive" id="wirepoly" value="wirepoly" > Polygon with Edges
+            </div>
+        </fieldset>
+        <fieldset>
+            <legend>Flight Control Direction</legend>
+            <div>
+                <emph>Use Keys Left and Right to adjust Roll Degree</emph> <br>
+                <emph>Use Keys Up and Down to adjust Pitch Degree</emph><br>
+                <emph>Use Keys + and - to adjust Speed</emph>
+            </div>
+        </fieldset>
+        <fieldset>
+            <legend>Fog</legend>
+            <div>
+                <input type="checkbox" id="fog" name="fog" checked><label for="fog">Enable Fog</label>
             </div>
         </fieldset>
     </form>

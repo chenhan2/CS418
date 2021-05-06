@@ -1,0 +1,35 @@
+<!DOCTYPE HTML> 
+<html lang="en"> 
+<head>
+<title>MP4Credit: Ray Tracing</title>
+<meta charset="utf-8"> 
+</head>
+
+<!-- Connect to the js files used in this MP -->
+<script src="src/misc/gl-matrix-min.js"></script>
+<script src="src/misc/Utils.js"></script>
+<script src="src/ray/Ray.js"></script>
+<script src="src/camera/Camera.js"></script>
+<script src="src/misc/HitRecord.js"></script>
+<script src="src/hittable/Hittable.js"></script>
+<script src="src/hittable/HittableList.js"></script>
+<script src="src/hittable/Sphere.js"></script>
+<script src="src/ray/RayUtils.js"></script>
+<script src="src/material/Material.js"></script>
+<script src="src/material/Lambertian.js"></script>
+<script src="src/material/Dielectric.js"></script>
+<script src="src/material/DiffuseLight.js"></script>
+<script src="src/material/Metal.js"></script>
+<script src="MP4Credit.js"></script>
+
+
+<!-- The canvas to draw -->
+<body onload="startup();">
+    <canvas id="glCanvas" width="1600" height="900"></canvas>
+    <div>
+        <a id="download" download="myImage.jpg" href="" onclick="download_img(this);">Download to myImage.jpg</a>
+    </div>
+    
+</body>
+
+</html>
